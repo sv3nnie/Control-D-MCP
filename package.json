@@ -1,10 +1,10 @@
 {
   "name": "@sv3nnie/control-d-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for the Control D DNS service API",
-"type": "module",
+  "type": "module",
   "bin": {
-    "control-d-mcp": "./dist/index.js"
+    "control-d-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [

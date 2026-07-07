@@ -173,31 +173,30 @@ export class ControlDClient {
       hostnames: string[];
       via?: string;
       via_v6?: string;
-      group?: string;
+      group?: number;
     }
   ) {
     return this.request<Record<string, unknown>>(
       "POST",
       `/profiles/${profileId}/rules`,
-      { group: "", ...params } as Record<string, unknown>
+      params as Record<string, unknown>
     );
   }
 
   updateRule(
     profileId: string,
-    ruleId: string,
     params: {
-      do?: 0 | 1 | 2 | 3;
-      status?: 0 | 1;
-      hostnames?: string[];
+      do: 0 | 1 | 2 | 3;
+      status: 0 | 1;
+      hostnames: string[];
       via?: string;
       via_v6?: string;
-      group?: string;
+      group?: number;
     }
   ) {
     return this.request<Record<string, unknown>>(
       "PUT",
-      `/profiles/${profileId}/rules/${ruleId}`,
+      `/profiles/${profileId}/rules`,
       params as Record<string, unknown>
     );
   }
@@ -330,9 +329,12 @@ export class ControlDClient {
     );
   }
 
-  // All services (catalog)
-  listAllServices() {
-    return this.request<Record<string, unknown>>("GET", "/services");
+  // All services in a catalog category
+  listCategoryServices(category: string) {
+    return this.request<Record<string, unknown>>(
+      "GET",
+      `/services/categories/${encodeURIComponent(category)}`
+    );
   }
 
   // Device types
@@ -343,6 +345,10 @@ export class ControlDClient {
   // Analytics
   listAnalyticsLevels() {
     return this.request<Record<string, unknown>>("GET", "/analytics/levels");
+  }
+
+  listAnalyticsStorageRegions() {
+    return this.request<Record<string, unknown>>("GET", "/analytics/endpoints");
   }
 
   // Organization

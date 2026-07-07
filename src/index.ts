@@ -218,27 +218,35 @@ const TOOLS = [
         },
         via: { type: "string", description: "IPv4/hostname for spoof or proxy ID for redirect" },
         via_v6: { type: "string", description: "IPv6 address for spoof" },
-        group: { type: "string", description: "Rule folder/group ID to place this rule in" },
+        group: { type: "number", description: "Rule folder/group ID (integer PK from list_groups) to place this rule in" },
       },
       required: ["profile_id", "do", "status", "hostnames"],
     },
   },
   {
     name: "update_rule",
-    description: "Update an existing custom DNS rule on a profile",
+    description:
+      "Update existing custom DNS rules on a profile. Rules are keyed by hostname, so pass the hostname(s) to modify in `hostnames` along with the new values (upsert).",
     inputSchema: {
       type: "object",
       properties: {
         profile_id: { type: "string", description: "Profile ID (PK)" },
-        rule_id: { type: "string", description: "Rule ID (PK)" },
-        do: { type: "number", enum: [0, 1, 2, 3] },
-        status: { type: "number", enum: [0, 1] },
-        hostnames: { type: "array", items: { type: "string" } },
-        via: { type: "string" },
-        via_v6: { type: "string" },
-        group: { type: "string" },
+        do: {
+          type: "number",
+          enum: [0, 1, 2, 3],
+          description: "Action: 0=block, 1=bypass, 2=spoof, 3=redirect",
+        },
+        status: { type: "number", enum: [0, 1], description: "0 = disabled, 1 = enabled" },
+        hostnames: {
+          type: "array",
+          items: { type: "string" },
+          description: "Hostname(s) identifying the rule(s) to update",
+        },
+        via: { type: "string", description: "IPv4/hostname for spoof or proxy ID for redirect" },
+        via_v6: { type: "string", description: "IPv6 address for spoof" },
+        group: { type: "number", description: "Rule folder/group ID (integer PK from list_groups) to move this rule to" },
       },
-      required: ["profile_id", "rule_id"],
+      required: ["profile_id", "do", "status", "hostnames"],
     },
   },
   {
@@ -417,9 +425,16 @@ const TOOLS = [
   },
   // Services catalog
   {
-    name: "list_all_services",
-    description: "List all services available in Control D (full catalog, not profile-specific)",
-    inputSchema: { type: "object", properties: {}, required: [] },
+    name: "list_category_services",
+    description:
+      "List all services in a catalog category (not profile-specific). Use list_service_categories to discover category IDs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: { type: "string", description: "Service category ID (from list_service_categories)" },
+      },
+      required: ["category"],
+    },
   },
   // Device types
   {
@@ -431,6 +446,11 @@ const TOOLS = [
   {
     name: "list_analytics_levels",
     description: "List available analytics log levels",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "list_analytics_storage_regions",
+    description: "List analytics storage regions that can be set on the account or organization",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   // Organization
@@ -640,12 +660,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       }
       case "update_rule": {
-        const { profile_id, rule_id, ...rest } = args as {
-          profile_id: string;
-          rule_id: string;
-          [k: string]: unknown;
-        };
-        result = await client.updateRule(profile_id, rule_id, rest as Parameters<typeof client.updateRule>[2]);
+        const { profile_id, ...rest } = args as { profile_id: string; [k: string]: unknown };
+        result = await client.updateRule(profile_id, rest as Parameters<typeof client.updateRule>[1]);
         break;
       }
       case "delete_rule":
@@ -718,8 +734,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Services catalog
-      case "list_all_services":
-        result = await client.listAllServices();
+      case "list_category_services":
+        result = await client.listCategoryServices(args.category as string);
         break;
 
       // Device types
@@ -730,6 +746,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Analytics
       case "list_analytics_levels":
         result = await client.listAnalyticsLevels();
+        break;
+      case "list_analytics_storage_regions":
+        result = await client.listAnalyticsStorageRegions();
         break;
 
       // Organization

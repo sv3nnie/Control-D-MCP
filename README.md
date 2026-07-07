@@ -58,7 +58,7 @@ Get your API token from the [Control D dashboard](https://controld.com/dashboard
 | `list_services` | List service rules for a profile |
 | `update_service` | Block, bypass, spoof, or redirect a service |
 | `list_service_categories` | List all service categories |
-| `list_all_services` | List the full Control D service catalog |
+| `list_category_services` | List all services in a catalog category |
 
 ### Rules
 
@@ -66,7 +66,7 @@ Get your API token from the [Control D dashboard](https://controld.com/dashboard
 |------|-------------|
 | `list_rules` | List custom DNS rules for a profile (optionally by folder) |
 | `create_rule` | Create a custom DNS rule |
-| `update_rule` | Update a custom DNS rule |
+| `update_rule` | Update custom DNS rule(s) by hostname |
 | `delete_rule` | Delete a custom DNS rule |
 | `get_default_rule` | Get the default rule for a profile |
 | `update_default_rule` | Update the default rule for a profile |
@@ -85,6 +85,7 @@ Get your API token from the [Control D dashboard](https://controld.com/dashboard
 | `delete_device` | Delete a device |
 | `list_device_types` | List available device types |
 | `list_analytics_levels` | List analytics log levels |
+| `list_analytics_storage_regions` | List analytics storage regions |
 | `list_access` | List authorized IPs for a device |
 | `add_access` | Whitelist IP addresses for a device |
 | `remove_access` | Remove IP addresses from a device |
