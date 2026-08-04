@@ -1,6 +1,6 @@
 {
   "name": "@sv3nnie/control-d-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for the Control D DNS service API",
   "type": "module",
   "bin": {

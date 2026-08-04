@@ -1,5 +1,18 @@
 const BASE_URL = "https://api.controld.com";
 
+function toFormBody(body: Record<string, unknown>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(body)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(`${key}[]`, String(item));
+    } else {
+      params.append(key, String(value));
+    }
+  }
+  return params.toString();
+}
+
 export class ControlDClient {
   private apiKey: string;
 
@@ -10,7 +23,8 @@ export class ControlDClient {
   private async request<T>(
     method: string,
     path: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    encoding: "form" | "json" = "form"
   ): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
@@ -18,12 +32,17 @@ export class ControlDClient {
 
     let fetchBody: string | undefined;
     if (body && method !== "GET") {
-      headers["Content-Type"] = "application/json";
-      fetchBody = JSON.stringify(
-        Object.fromEntries(
-          Object.entries(body).filter(([, v]) => v !== undefined && v !== null)
-        )
-      );
+      if (encoding === "json") {
+        headers["Content-Type"] = "application/json";
+        fetchBody = JSON.stringify(
+          Object.fromEntries(
+            Object.entries(body).filter(([, v]) => v !== undefined && v !== null)
+          )
+        );
+      } else {
+        headers["Content-Type"] = "application/x-www-form-urlencoded";
+        fetchBody = toFormBody(body);
+      }
     }
 
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -136,7 +155,8 @@ export class ControlDClient {
     return this.request<Record<string, unknown>>(
       "PUT",
       `/profiles/${profileId}/filters`,
-      { filters } as Record<string, unknown>
+      { filters } as Record<string, unknown>,
+      "json"
     );
   }
 
@@ -201,10 +221,10 @@ export class ControlDClient {
     );
   }
 
-  deleteRule(profileId: string, ruleId: string) {
+  deleteRule(profileId: string, hostname: string) {
     return this.request<Record<string, unknown>>(
       "DELETE",
-      `/profiles/${profileId}/rules/${ruleId}`
+      `/profiles/${profileId}/rules/${encodeURIComponent(hostname)}`
     );
   }
 

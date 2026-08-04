@@ -256,9 +256,12 @@ const TOOLS = [
       type: "object",
       properties: {
         profile_id: { type: "string", description: "Profile ID (PK)" },
-        rule_id: { type: "string", description: "Rule ID (PK)" },
+        hostname: {
+          type: "string",
+          description: "Hostname of the rule to delete (the rule's PK is its hostname, e.g. domain.com)",
+        },
       },
-      required: ["profile_id", "rule_id"],
+      required: ["profile_id", "hostname"],
     },
   },
   // Rule Groups
@@ -345,7 +348,19 @@ const TOOLS = [
         name: { type: "string", description: "Device name" },
         client_count: { type: "number", description: "Number of clients" },
         profile_id: { type: "string", description: "Profile ID to assign" },
+        profile_id2: { type: "string", description: "Secondary profile ID to enforce" },
         icon: { type: "string", description: "Device icon identifier" },
+        stats: { type: "number", enum: [0, 1, 2], description: "Analytics level: 0=off, 1=basic, 2=full" },
+        legacy_ipv4_status: { type: "number", enum: [0, 1], description: "Set to 1 to generate a legacy IPv4 (and IPv6) DNS resolver" },
+        learn_ip: { type: "number", enum: [0, 1], description: "Enable/disable automatic IP learning and logging" },
+        restricted: { type: "number", enum: [0, 1], description: "Make this device restricted (only authorized IPs can query it)" },
+        desc: { type: "string", description: "Description or comment for the device" },
+        ddns_status: { type: "number", enum: [0, 1], description: "Status of DDNS endpoint that exposes last used IP" },
+        ddns_subdomain: { type: "string", description: "DDNS subdomain to expose the IP on" },
+        ddns_ext_status: { type: "number", enum: [0, 1], description: "Status of DDNS-based IP learning" },
+        ddns_ext_host: { type: "string", description: "DDNS hostname to query to learn new IPs" },
+        remap_device_id: { type: "string", description: "Remap source device + client ID to a new device" },
+        remap_client_id: { type: "string", description: "Remap source device + client ID to a new device" },
       },
       required: ["name"],
     },
@@ -358,12 +373,21 @@ const TOOLS = [
       properties: {
         device_id: { type: "string", description: "Device ID" },
         name: { type: "string" },
+        client_count: { type: "number", description: "Number of clients" },
         profile_id: { type: "string", description: "Primary profile ID" },
-        profile_id2: { type: "string", description: "Secondary profile ID" },
-        stats: { type: "number", enum: [0, 1] },
+        profile_id2: { type: "string", description: "Secondary profile ID (-1 to remove)" },
+        stats: { type: "number", enum: [0, 1, 2], description: "Analytics level: 0=off, 1=basic, 2=full" },
+        legacy_ipv4_status: { type: "number", enum: [0, 1], description: "1 to generate a legacy IPv4 (and IPv6) resolver, 0 to remove existing one" },
         learn_ip: { type: "number", enum: [0, 1] },
-        restricted: { type: "number" },
+        restricted: { type: "number", enum: [0, 1] },
+        bump_tls: { type: "number", enum: [0, 1], description: "Enable/disable experimental ECH support and TLS bumping" },
+        desc: { type: "string", description: "Description or comment for the device" },
+        ddns_status: { type: "number", enum: [0, 1] },
+        ddns_subdomain: { type: "string" },
+        ddns_ext_host: { type: "string" },
+        ddns_ext_status: { type: "number", enum: [0, 1] },
         status: { type: "number", enum: [0, 1, 2, 3], description: "0=pending, 1=active, 2=soft disabled, 3=hard disabled" },
+        ctrld_custom_config: { type: "string", description: "ctrld .toml config file to deploy" },
       },
       required: ["device_id"],
     },
@@ -667,7 +691,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "delete_rule":
         result = await client.deleteRule(
           args.profile_id as string,
-          args.rule_id as string
+          args.hostname as string
         );
         break;
 
