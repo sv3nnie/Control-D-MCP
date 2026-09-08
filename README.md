@@ -20,6 +20,10 @@ Add this to your MCP client config:
 
 Get your API token from the [Control D dashboard](https://controld.com/dashboard/api).
 
+For organization accounts, profile, endpoint, rule, and access-control tools accept
+an optional `organization_id`. This sends Control D's `X-Force-Org-Id` header so a
+parent organization token can manage a child sub-organization.
+
 ## Tools
 
 ### Account
@@ -65,8 +69,8 @@ Get your API token from the [Control D dashboard](https://controld.com/dashboard
 | Tool | Description |
 |------|-------------|
 | `list_rules` | List custom DNS rules for a profile (optionally by folder) |
-| `create_rule` | Create a custom DNS rule |
-| `update_rule` | Update custom DNS rule(s) by hostname |
+| `create_rule` | Create a custom DNS rule, optionally with a comment |
+| `update_rule` | Update custom DNS rule(s) by hostname, including comments |
 | `delete_rule` | Delete a custom DNS rule |
 | `get_default_rule` | Get the default rule for a profile |
 | `update_default_rule` | Update the default rule for a profile |

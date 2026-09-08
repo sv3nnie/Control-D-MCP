@@ -1,6 +1,6 @@
 {
   "name": "@sv3nnie/control-d-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for the Control D DNS service API",
   "type": "module",
   "bin": {
@@ -13,11 +13,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "test": "npm run build && node --test test/*.test.js",
     "start": "node dist/index.js",
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.1"
+    "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

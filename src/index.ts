@@ -13,14 +13,24 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const client = new ControlDClient(apiKey);
+const rootClient = new ControlDClient(apiKey);
+
+type ToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required: string[];
+  };
+};
 
 const server = new Server(
-  { name: "control-d-mcp", version: "0.1.0" },
+  { name: "control-d-mcp", version: "0.4.0" },
   { capabilities: { tools: {} } }
 );
 
-const TOOLS = [
+const TOOLS: ToolDefinition[] = [
   // Account
   {
     name: "get_user",
@@ -189,7 +199,7 @@ const TOOLS = [
         via: { type: "string", description: "IPv4/hostname for spoof or proxy ID for redirect" },
         via_v6: { type: "string", description: "IPv6 address for spoof" },
       },
-      required: ["profile_id", "service"],
+      required: ["profile_id", "service", "do", "status"],
     },
   },
   {
@@ -219,6 +229,7 @@ const TOOLS = [
         via: { type: "string", description: "IPv4/hostname for spoof or proxy ID for redirect" },
         via_v6: { type: "string", description: "IPv6 address for spoof" },
         group: { type: "number", description: "Rule folder/group ID (integer PK from list_groups) to place this rule in" },
+        comment: { type: "string", maxLength: 64, description: "Optional comment for the custom rule" },
       },
       required: ["profile_id", "do", "status", "hostnames"],
     },
@@ -245,6 +256,7 @@ const TOOLS = [
         via: { type: "string", description: "IPv4/hostname for spoof or proxy ID for redirect" },
         via_v6: { type: "string", description: "IPv6 address for spoof" },
         group: { type: "number", description: "Rule folder/group ID (integer PK from list_groups) to move this rule to" },
+        comment: { type: "string", maxLength: 64, description: "Optional comment for the custom rule" },
       },
       required: ["profile_id", "do", "status", "hostnames"],
     },
@@ -288,7 +300,7 @@ const TOOLS = [
         via: { type: "string" },
         status: { type: "number", enum: [0, 1] },
       },
-      required: ["profile_id", "name"],
+      required: ["profile_id", "name", "do", "status"],
     },
   },
   {
@@ -304,7 +316,7 @@ const TOOLS = [
         via: { type: "string" },
         status: { type: "number", enum: [0, 1] },
       },
-      required: ["profile_id", "group_id"],
+      required: ["profile_id", "group_id", "do", "status"],
     },
   },
   {
@@ -346,7 +358,7 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "Device name" },
-        client_count: { type: "number", description: "Number of clients" },
+        client_count: { type: "string", description: "Number of clients using this endpoint" },
         profile_id: { type: "string", description: "Profile ID to assign" },
         profile_id2: { type: "string", description: "Secondary profile ID to enforce" },
         icon: { type: "string", description: "Device icon identifier" },
@@ -362,7 +374,7 @@ const TOOLS = [
         remap_device_id: { type: "string", description: "Remap source device + client ID to a new device" },
         remap_client_id: { type: "string", description: "Remap source device + client ID to a new device" },
       },
-      required: ["name"],
+      required: ["name", "client_count", "profile_id", "icon"],
     },
   },
   {
@@ -442,9 +454,8 @@ const TOOLS = [
         },
         status: { type: "number", enum: [0, 1] },
         via: { type: "string" },
-        via_v6: { type: "string" },
       },
-      required: ["profile_id", "do"],
+      required: ["profile_id", "do", "status"],
     },
   },
   // Services catalog
@@ -500,8 +511,16 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "Sub-organization name" },
+        contact_email: { type: "string", description: "Primary contact email" },
+        twofa_req: { type: "number", enum: [0, 1], description: "Require 2FA for organization members" },
+        stats_endpoint: { type: "string", description: "Analytics storage region ID" },
+        address: { type: "string", description: "Physical address" },
+        website: { type: "string", description: "Website URL" },
+        contact_name: { type: "string", description: "Primary contact name" },
+        contact_phone: { type: "string", description: "Primary contact phone number" },
+        parent_profile: { type: "string", description: "Global profile ID to enforce on created devices" },
       },
-      required: ["name"],
+      required: ["name", "contact_email", "twofa_req", "stats_endpoint"],
     },
   },
   {
@@ -511,6 +530,14 @@ const TOOLS = [
       type: "object",
       properties: {
         name: { type: "string", description: "Organization name" },
+        contact_email: { type: "string", description: "Primary contact email" },
+        twofa_req: { type: "number", enum: [0, 1], description: "Require 2FA for organization members" },
+        stats_endpoint: { type: "string", description: "Analytics storage region ID" },
+        address: { type: "string", description: "Physical address" },
+        website: { type: "string", description: "Website URL" },
+        contact_name: { type: "string", description: "Primary contact name" },
+        contact_phone: { type: "string", description: "Primary contact phone number" },
+        parent_profile: { type: "string", description: "Global profile ID to enforce on created devices" },
       },
       required: [],
     },
@@ -588,10 +615,60 @@ const TOOLS = [
   },
 ];
 
+const ORGANIZATION_SCOPED_TOOLS = new Set([
+  "list_profiles",
+  "create_profile",
+  "update_profile",
+  "delete_profile",
+  "list_profile_options",
+  "update_profile_option",
+  "list_filters",
+  "list_external_filters",
+  "update_filter",
+  "batch_update_filters",
+  "list_services",
+  "update_service",
+  "create_rule",
+  "update_rule",
+  "delete_rule",
+  "list_groups",
+  "create_group",
+  "update_group",
+  "delete_group",
+  "list_devices",
+  "create_device",
+  "update_device",
+  "delete_device",
+  "list_rules",
+  "get_default_rule",
+  "update_default_rule",
+  "get_organization",
+  "update_organization",
+  "list_organization_members",
+  "list_sub_organizations",
+  "create_sub_organization",
+  "list_access",
+  "add_access",
+  "remove_access",
+]);
+
+for (const tool of TOOLS) {
+  if (ORGANIZATION_SCOPED_TOOLS.has(tool.name)) {
+    tool.inputSchema.properties.organization_id = {
+      type: "string",
+      description: "Optional sub-organization ID to impersonate via X-Force-Org-Id",
+    };
+  }
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args = {} } = request.params;
+  const { name, arguments: rawArgs = {} } = request.params;
+  const args = { ...rawArgs };
+  const organizationId = args.organization_id as string | undefined;
+  delete args.organization_id;
+  const client = rootClient.withOrganization(organizationId);
 
   try {
     let result: unknown;

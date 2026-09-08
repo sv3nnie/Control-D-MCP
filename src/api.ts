@@ -15,9 +15,17 @@ function toFormBody(body: Record<string, unknown>): string {
 
 export class ControlDClient {
   private apiKey: string;
+  private organizationId?: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, organizationId?: string) {
     this.apiKey = apiKey;
+    this.organizationId = organizationId;
+  }
+
+  withOrganization(organizationId?: string) {
+    return organizationId
+      ? new ControlDClient(this.apiKey, organizationId)
+      : this;
   }
 
   private async request<T>(
@@ -29,6 +37,9 @@ export class ControlDClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
     };
+    if (this.organizationId) {
+      headers["X-Force-Org-Id"] = this.organizationId;
+    }
 
     let fetchBody: string | undefined;
     if (body && method !== "GET") {
@@ -171,7 +182,7 @@ export class ControlDClient {
   updateService(
     profileId: string,
     service: string,
-    params: { do?: 0 | 1 | 2 | 3; status?: 0 | 1; via?: string; via_v6?: string }
+    params: { do: 0 | 1 | 2 | 3; status: 0 | 1; via?: string; via_v6?: string }
   ) {
     return this.request<Record<string, unknown>>(
       "PUT",
@@ -194,6 +205,7 @@ export class ControlDClient {
       via?: string;
       via_v6?: string;
       group?: number;
+      comment?: string;
     }
   ) {
     return this.request<Record<string, unknown>>(
@@ -212,6 +224,7 @@ export class ControlDClient {
       via?: string;
       via_v6?: string;
       group?: number;
+      comment?: string;
     }
   ) {
     return this.request<Record<string, unknown>>(
@@ -240,9 +253,9 @@ export class ControlDClient {
     profileId: string,
     params: {
       name: string;
-      do?: 0 | 1 | 2 | 3;
+      do: 0 | 1 | 2 | 3;
       via?: string;
-      status?: 0 | 1;
+      status: 0 | 1;
     }
   ) {
     return this.request<Record<string, unknown>>(
@@ -257,9 +270,9 @@ export class ControlDClient {
     groupId: string,
     params: {
       name?: string;
-      do?: 0 | 1 | 2 | 3;
+      do: 0 | 1 | 2 | 3;
       via?: string;
-      status?: 0 | 1;
+      status: 0 | 1;
     }
   ) {
     return this.request<Record<string, unknown>>(
@@ -287,9 +300,9 @@ export class ControlDClient {
 
   createDevice(params: {
     name: string;
-    client_count?: number;
-    profile_id?: string;
-    icon?: string;
+    client_count: string;
+    profile_id: string;
+    icon: string;
     [key: string]: unknown;
   }) {
     return this.request<Record<string, unknown>>("POST", "/devices", params);
@@ -340,7 +353,7 @@ export class ControlDClient {
 
   updateDefaultRule(
     profileId: string,
-    params: { do: 0 | 1 | 2 | 3; status?: 0 | 1; via?: string; via_v6?: string }
+    params: { do: 0 | 1 | 2 | 3; status: 0 | 1; via?: string }
   ) {
     return this.request<Record<string, unknown>>(
       "PUT",
@@ -393,7 +406,17 @@ export class ControlDClient {
     );
   }
 
-  createSubOrganization(params: { name: string; [key: string]: unknown }) {
+  createSubOrganization(params: {
+    name: string;
+    contact_email: string;
+    twofa_req: 0 | 1;
+    stats_endpoint: string;
+    address?: string;
+    website?: string;
+    contact_name?: string;
+    contact_phone?: string;
+    parent_profile?: string;
+  }) {
     return this.request<Record<string, unknown>>(
       "POST",
       "/organizations/suborg",
