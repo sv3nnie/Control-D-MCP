@@ -384,6 +384,91 @@ export class ControlDClient {
     return this.request<Record<string, unknown>>("GET", "/analytics/endpoints");
   }
 
+  private async analyticsUrl(path: string, params: Record<string, unknown> = {}) {
+    const user = await this.getUser() as { stats_endpoint?: string; org?: { stats_endpoint?: string } };
+    const endpoint = user.org?.stats_endpoint ?? user.stats_endpoint;
+    if (!endpoint || !/^[a-z0-9-]+$/.test(endpoint)) {
+      throw new Error("Control D did not return a valid analytics stats_endpoint");
+    }
+    const url = new URL(`https://${endpoint}.analytics.controld.com${path}`);
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) url.searchParams.append(`${key}[]`, String(item));
+      } else {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url;
+  }
+
+  async analyticsRequest(
+    method: string,
+    path: string,
+    params: Record<string, unknown> = {},
+    body?: unknown,
+    format: "json" | "csv" = "json"
+  ): Promise<unknown> {
+    const url = await this.analyticsUrl(path, params);
+    const headers: Record<string, string> = { Authorization: `Bearer ${this.apiKey}` };
+    if (this.organizationId) headers["X-Force-Org-Id"] = this.organizationId;
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const res = await fetch(url, {
+      method,
+      headers,
+      ...(body !== undefined && { body: JSON.stringify(body) }),
+    });
+    const text = await res.text();
+    if (format === "csv" && res.ok) return text;
+    let data: { success?: boolean; body?: unknown; error?: { message?: string } };
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Analytics API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`);
+    }
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error?.message ?? `Analytics API HTTP ${res.status}`);
+    }
+    return data.body ?? data;
+  }
+
+  async streamActivityLog(params: Record<string, unknown>, maxEvents: number, durationMs: number) {
+    const auth = await this.analyticsRequest("GET", "/v2/auth/token") as { token?: string };
+    if (!auth.token) throw new Error("Analytics API did not return a realtime token");
+    const url = await this.analyticsUrl("/v2/activity-log/realtime", { ...params, authToken: auth.token });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), durationMs);
+    const events: unknown[] = [];
+    try {
+      const headers: Record<string, string> = { Accept: "text/event-stream" };
+      if (this.organizationId) headers["X-Force-Org-Id"] = this.organizationId;
+      const res = await fetch(url, { headers, signal: controller.signal });
+      if (!res.ok || !res.body) throw new Error(`Realtime Analytics API HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (events.length < maxEvents) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+        let boundary;
+        while ((boundary = buffer.indexOf("\n\n")) !== -1 && events.length < maxEvents) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const data = frame.split("\n").filter(line => line.startsWith("data:")).map(line => line.slice(5).trimStart()).join("\n");
+          if (!data) continue;
+          try { events.push(JSON.parse(data)); } catch { events.push(data); }
+        }
+      }
+      await reader.cancel();
+    } catch (error) {
+      if (!controller.signal.aborted) throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    return { events, complete: events.length >= maxEvents };
+  }
+
   // Organization
   getOrganization() {
     return this.request<Record<string, unknown>>(

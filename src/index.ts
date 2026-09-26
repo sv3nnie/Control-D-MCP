@@ -6,6 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { ControlDClient } from "./api.js";
+import { analyticsTools, callAnalyticsTool, isAnalyticsTool } from "./analytics.js";
 
 const apiKey = process.env.API_TOKEN;
 if (!apiKey) {
@@ -26,7 +27,7 @@ type ToolDefinition = {
 };
 
 const server = new Server(
-  { name: "control-d-mcp", version: "0.4.0" },
+  { name: "control-d-mcp", version: "0.5.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -615,6 +616,8 @@ const TOOLS: ToolDefinition[] = [
   },
 ];
 
+TOOLS.push(...analyticsTools);
+
 const ORGANIZATION_SCOPED_TOOLS = new Set([
   "list_profiles",
   "create_profile",
@@ -672,6 +675,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     let result: unknown;
+
+    if (isAnalyticsTool(name)) {
+      result = await callAnalyticsTool(client, name, args);
+      return { content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result, null, 2) }] };
+    }
 
     switch (name) {
       // Account
